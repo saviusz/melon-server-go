@@ -5,7 +5,7 @@ tasks:
     - go install github.com/bokwoon95/wgo@latest
     - go install github.com/gotesttools/gotestfmt/v2/cmd/gotestfmt@latest
     - go mod download
-  build: go build ./src
+  build: go build -o ./dist/ ./src/main.go
   tidy: go mod tidy
   run: go run ./src
   watch: wgo run ./src
