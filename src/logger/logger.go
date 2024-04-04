@@ -12,13 +12,18 @@ import (
 var timestampStyle = lipgloss.NewStyle().
 	Align(lipgloss.Right).
 	Foreground(lipgloss.ANSIColor(7)).
-	Faint(true)
+	Faint(true).MarginRight(1)
 
-var levelStyle = lipgloss.NewStyle().Width(5).MarginLeft(1).MarginRight(1)
+var levelStyle = lipgloss.NewStyle().Width(5)
 
 var statusStyle = lipgloss.NewStyle().Width(3).MarginLeft(1).MarginRight(1).Bold(true)
 
-var msgStyle = lipgloss.NewStyle().BorderLeft(true)
+var msgStyle = lipgloss.NewStyle().
+	Faint(true).
+	PaddingLeft(1).
+	Border(lipgloss.NormalBorder(), false, false, false, true).BorderForeground(lipgloss.Color("8"))
+
+var pathStyle = lipgloss.NewStyle().MarginLeft(1)
 
 type Level int8
 
@@ -51,6 +56,7 @@ type LogOpts struct {
 	Level  Level
 	Status uint16
 	Method string
+	Path   string
 }
 
 func (l *Logger) Log(msg string, opts LogOpts) {
@@ -87,7 +93,13 @@ func (l *Logger) Log(msg string, opts LogOpts) {
 
 	styledMsg = msgStyle.Render(msg)
 
-	l.b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, ts, level, status, styledMsg))
+	statusLine := lipgloss.JoinHorizontal(lipgloss.Top, level, status, opts.Method, pathStyle.Render(opts.Path))
+	fullMsg := lipgloss.JoinVertical(lipgloss.Left, statusLine, styledMsg)
+	if msg == "" {
+		fullMsg = statusLine
+	}
+
+	l.b.WriteString(lipgloss.JoinHorizontal(lipgloss.Top, ts, fullMsg))
 	l.b.WriteString("\n")
 
 	l.b.WriteTo(l.w)
