@@ -3,8 +3,9 @@ package mux
 import "net/http"
 
 type Context struct {
-	req *http.Request
-	w   http.ResponseWriter
+	req    *http.Request
+	w      http.ResponseWriter
+	Params map[string]string
 }
 
 func (ctx *Context) createResponse(output interface{}, code int) (err error) {

@@ -7,62 +7,63 @@ import (
 	"strings"
 )
 
-type tree struct {
+type Tree struct {
 	regPaths []regPathNode
 }
 
-func New() *tree {
-	return &tree{
+func NewTree() *Tree {
+	return &Tree{
 		regPaths: []regPathNode{},
 	}
 }
 
-func (t *tree) Add(node regPathNode) {
-	found := false
-	for i, v := range t.regPaths {
-		if node.level > v.level || (node.level == v.level && len(node.paramNames) < len(v.paramNames)) {
-			t.regPaths = slices.Insert(t.regPaths, i, node)
-			found = true
-			break
+func (t *Tree) Add(path string, method string, handler EndpointHandler) error {
+	nodeToInsert := NewNode(path, map[string]EndpointHandler{
+		method: handler,
+	})
+
+	for index, node := range t.regPaths {
+		if node.path == path {
+			if node.handlers[method] != nil {
+				return errors.New("method already exist")
+			}
+			node.handlers[method] = handler
+			return nil
+		}
+		if nodeToInsert.level > node.level ||
+			(nodeToInsert.level == node.level && len(nodeToInsert.paramNames) < len(node.paramNames)) {
+			t.regPaths = slices.Insert(t.regPaths, index, nodeToInsert)
+			return nil
 		}
 	}
-	if !found {
-		t.regPaths = append(t.regPaths, node)
-	}
+
+	t.regPaths = append(t.regPaths, nodeToInsert)
+	return nil
 }
 
-func (t *tree) Find(url string, method string) (EndpointHandler, map[string]string, error) {
-	var (
-		found     *regPathNode
-		paramVals []string
-	)
-
-	// Dla każdej zarejestrowanej ścieżki
-	for _, regPath := range t.regPaths {
-
-		// Utwórz z niej regex
-		regex := regexp.MustCompile("^" + regPath.path + "/*$")
-
-		// Sprawdź, czy pasuje do regexu
-		if regex.MatchString(url) {
-			paramVals = regex.FindAllStringSubmatch(url, -1)[0][1:]
-			found = &regPath
-			break
-		}
-	}
-
-	if found != nil {
-		if handler, ok := found.handlers[method]; ok {
-			params := map[string]string{}
-			for i, paramName := range found.paramNames {
-				params[paramName] = paramVals[i]
+func (t *Tree) Find(path string, method string) (EndpointHandler, map[string]string, error) {
+	for _, node := range t.regPaths {
+		preparedPath := regexp.MustCompile("^" + node.path + "/*$")
+		if preparedPath.MatchString(path) {
+			handler, ok := node.handlers[method]
+			if !ok {
+				return nil, nil, errors.New("method not registered")
 			}
 
-			return handler, params, nil
+			paramValues := preparedPath.FindAllStringSubmatch(path, -1)[0][1:]
+
+			paramMap := map[string]string{}
+
+			for index, paramName := range node.paramNames {
+				paramValue := paramValues[index]
+				paramMap[paramName] = paramValue
+			}
+
+			return handler, paramMap, nil
 		}
 	}
 
-	return nil, nil, errors.New("nie znaleziono")
+	return nil, nil, errors.New("path not found")
 }
 
 type regPathNode struct {
