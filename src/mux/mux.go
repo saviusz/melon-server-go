@@ -72,16 +72,21 @@ func (mux *Mux) findHandler(r *http.Request) EndpointHandler {
 }
 
 func (mux *Mux) GET(path string, handler EndpointHandler) {
-	err := mux.tree.Add(path, "GET", handler)
-	if err != nil {
-		log.Fatalf("Error adding path %s %s: %v", "GET", path, err)
-	}
+	mux.addHandler(path, handler, "GET")
 }
 
 func (mux *Mux) POST(path string, handler EndpointHandler) {
-	err := mux.tree.Add(path, "POST", handler)
+	mux.addHandler(path, handler, "POST")
+}
+
+func (mux *Mux) DELETE(path string, handler EndpointHandler) {
+	mux.addHandler(path, handler, "DELETE")
+}
+
+func (mux *Mux) addHandler(path string, handler EndpointHandler, name string) {
+	err := mux.tree.Add(path, name, handler)
 	if err != nil {
-		log.Fatalf("Error adding path %s %s: %v", "POST", path, err)
+		log.Fatalf("Error adding path %s %s: %v", name, path, err)
 	}
 }
 
