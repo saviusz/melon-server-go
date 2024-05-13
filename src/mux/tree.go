@@ -8,21 +8,22 @@ import (
 )
 
 type Tree struct {
-	regPaths []regPathNode
+	RegPaths []regPathNode
 }
 
 func NewTree() *Tree {
 	return &Tree{
-		regPaths: []regPathNode{},
+		RegPaths: []regPathNode{},
 	}
 }
 
 func (t *Tree) Add(path string, method string, handler EndpointHandler) error {
+
 	nodeToInsert := NewNode(path, map[string]EndpointHandler{
 		method: handler,
 	})
 
-	for index, node := range t.regPaths {
+	for index, node := range t.RegPaths {
 		if node.path == path {
 			if node.handlers[method] != nil {
 				return errors.New("method already exist")
@@ -32,17 +33,19 @@ func (t *Tree) Add(path string, method string, handler EndpointHandler) error {
 		}
 		if nodeToInsert.level > node.level ||
 			(nodeToInsert.level == node.level && len(nodeToInsert.paramNames) < len(node.paramNames)) {
-			t.regPaths = slices.Insert(t.regPaths, index, nodeToInsert)
+			t.RegPaths = slices.Insert(t.RegPaths, index, nodeToInsert)
 			return nil
 		}
 	}
 
-	t.regPaths = append(t.regPaths, nodeToInsert)
+	t.RegPaths = append(t.RegPaths, nodeToInsert)
+
 	return nil
 }
 
 func (t *Tree) Find(path string, method string) (EndpointHandler, map[string]string, error) {
-	for _, node := range t.regPaths {
+
+	for _, node := range t.RegPaths {
 		preparedPath := regexp.MustCompile("^" + node.path + "/*$")
 		if preparedPath.MatchString(path) {
 			handler, ok := node.handlers[method]
@@ -61,6 +64,7 @@ func (t *Tree) Find(path string, method string) (EndpointHandler, map[string]str
 
 			return handler, paramMap, nil
 		}
+
 	}
 
 	return nil, nil, errors.New("path not found")

@@ -9,17 +9,18 @@ import (
 )
 
 type Mux struct {
-	tree Tree
+	Tree Tree
 }
 
 func New() Mux {
 	return Mux{
-		tree: *NewTree(),
+		Tree: *NewTree(),
 	}
 }
 
 func (mux Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	ctx := Context{req: r, w: w}
+
+	ctx := Context{Req: r, w: w}
 
 	code, obj, err := mux.findHandler(r)(ctx)
 
@@ -41,9 +42,13 @@ func (mux Mux) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 }
 
+func (mux *Mux) serve(w http.ResponseWriter, r *http.Request) {
+
+}
+
 func handleError(ctx Context, e error) (code int, obj interface{}, err error) {
 	switch fe := e.(type) {
-	case errors.ApiError:
+	case *errors.ApiError:
 		code = fe.Code
 		obj = fe
 	default:
@@ -60,7 +65,7 @@ func handleError(ctx Context, e error) (code int, obj interface{}, err error) {
 }
 
 func (mux *Mux) findHandler(r *http.Request) EndpointHandler {
-	handler, params, err := mux.tree.Find(r.URL.Path, r.Method)
+	handler, params, err := mux.Tree.Find(r.URL.Path, r.Method)
 	if err == nil {
 		return func(ctx Context) (int, interface{}, error) {
 			newCtx := ctx
@@ -84,7 +89,7 @@ func (mux *Mux) DELETE(path string, handler EndpointHandler) {
 }
 
 func (mux *Mux) addHandler(path string, handler EndpointHandler, name string) {
-	err := mux.tree.Add(path, name, handler)
+	err := mux.Tree.Add(path, name, handler)
 	if err != nil {
 		log.Fatalf("Error adding path %s %s: %v", name, path, err)
 	}
@@ -125,4 +130,48 @@ func marshal(i interface{}, mime string) (output_data []byte, mime_o string, err
 		mime_o = "application/xml"
 	}
 	return
+}
+
+func unmarshal(i interface{}, data []byte, mime string) *errors.ApiError {
+	switch mime {
+	case "application/json":
+		err := json.Unmarshal(data, &i)
+		if err != nil {
+			switch e := err.(type) {
+			case *json.SyntaxError:
+				return errors.BadRequestError(e.Error())
+			default:
+				log.Print(e)
+				return errors.BadRequestError("Unsupported JSON field type or value")
+			}
+		}
+	case "application/xml":
+		err := xml.Unmarshal(data, &i)
+		if err != nil {
+			switch e := err.(type) {
+			case *xml.SyntaxError:
+				return errors.BadRequestError(e.Error())
+			default:
+				log.Print(e)
+				return errors.BadRequestError("Unsupported XML")
+			}
+		}
+	default:
+		return errors.UnsupportedMediaError(mime)
+	}
+	return nil
+}
+
+func unmarshalRaw(data []byte, mime string) (interface{}, *errors.ApiError) {
+	var output *interface{} = nil
+	err := unmarshal(&output, data, mime)
+	if err != nil {
+		return nil, err
+	}
+	if output == nil {
+		return nil, &errors.ApiError{
+			Code: 500,
+		}
+	}
+	return *output, nil
 }
